@@ -123,9 +123,12 @@ module.exports.DatabaseController = class DatabaseController {
         await user.save();
     }
 
-    async clearUser(user) {
-        const { profileId } = user;
-        await User.findOneAndDelete({ profileId });
+    async clearUser(id) {
+        await User.findOneAndDelete({ profileId: id });
+    }
+
+    async saveResponse(id, response) {
+        await User.findOneAndUpdate({ profileId: id }, { response });
     }
     async saveByQuestionNumber (user, value) {
         const { request, currentQuestion } = user;

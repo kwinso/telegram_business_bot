@@ -8,7 +8,7 @@ const  { DatabaseController } = require("./Contollers/DatabaseController");
 const MessagesController =  require("./Contollers/MessagesController");
 const { QiWiController } = require("./Contollers/PaymentsControllers");
 const { Validator, AskHandler} = require("./Helpers/RequestBuildHelpers");
-const { getData } = require("./Helpers/RequestHandler");
+const { getData, generateHTML, generateXLSX, createTextTable } = require("./Helpers/RequestHandler");
 
 const { dependencies } = ini.parse(fs.readFileSync("./bot_config.ini", "utf-8"));
 
@@ -104,11 +104,17 @@ bot.hears("Пропустить ⏭️",  async (ctx) => {
 });
 bot.hears("Найти 🔍", async (ctx) => {
     const  user = await database.getUser(ctx.from.id);
-    let gotResults = await getData(user.request, ctx, dependencies.API_TOKEN);
-    if (gotResults) {
-        await database.clearUser(user);
-        await ctx.reply("⚠️ Вы использовали свою попытку поиска, для следующего раза нужно будет оплатить использование ещё раз. ⚠️", { reply_markup: { remove_keyboard: true }});
-        messages.sendPaymentOffer(ctx);
+    await ctx.reply("Поиск начался...", { reply_markup: { remove_keyboard: true }});
+    if (!user) return;
+    let results = await getData(user.request, ctx, dependencies.API_TOKEN);
+    if (results) {
+        ctx.reply("Результаты получены, выберите формат", Extra.markup(m => m.inlineKeyboard([
+            [m.callbackButton("XLSX (excel)", "type xlsx"), m.callbackButton("HTML (браузер) ", "type html")], 
+            [m.callbackButton("Текстовая таблица (редактор текста)", "type txt")]
+        ])));
+        await database.saveResponse(ctx.from.id, results);
+        user.hasPaid = false;
+        database.update(user);
         return;
     }
     ctx.reply("⚠️ Поиск был неудачным, поэтому у вас есть возможность переделать ваш запрос.", Extra.HTML().markup(m => m.inlineKeyboard([m.callbackButton("Начать заново 🔄", "buildRequest")])));
@@ -122,7 +128,7 @@ bot.on("text", async (ctx) => {
         messages.sendPaymentOffer(ctx);
         return; 
     }
-    if (user.currentQuestion == 11) {
+    if (user.currentQuestion == 11 && user.hasPaid) {
         messages.generatePreRequestQuestion(user.request, ctx);
         return;
     }
@@ -163,6 +169,26 @@ bot.on("callback_query", async (ctx) => {
     if(ctx.callbackQuery.data == 'buildRequest') {
         ctx.deleteMessage()
         startQuestions(ctx);
+    }
+    if (ctx.callbackQuery.data.startsWith("type")) {
+        const fileType = ctx.callbackQuery.data.split(' ')[1];
+        const { response } = await database.getUser(ctx.from.id);
+        ctx.answerCbQuery("Генерирую файл...");
+        let data;
+        switch (fileType) {
+            case "xlsx":
+                data = await generateXLSX(response);
+                ctx.replyWithDocument({ source: data, filename: "Результаты.xlsx" });
+                break;
+            case "txt":
+                data = createTextTable(response);
+                ctx.replyWithDocument({ source: data, filename: "Результаты.txt" });
+                break;
+            case "html":
+                data = await generateHTML(response);
+                ctx.replyWithDocument({ source: data, filename: "Результаты.html" });
+                break;
+        }
     }
 });
 async function startQuestions (ctx) {
