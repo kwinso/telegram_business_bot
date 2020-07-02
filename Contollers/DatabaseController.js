@@ -119,6 +119,8 @@ module.exports.DatabaseController = class DatabaseController {
 
     async clearUserRequest(user) {
         user.request = null;
+        user.response = null;
+        user.timesGenerated = 0;
         user.currentQuestion = 0;
         await user.save();
     }
@@ -134,10 +136,10 @@ module.exports.DatabaseController = class DatabaseController {
         const { request, currentQuestion } = user;
         switch (currentQuestion) {
             case 0:
-                request.firstName = value;
+                request.lastName = value;
                 break;
             case 1:
-                request.lastName = value;
+                request.firstName = value;
                 break;
             case 2:
                 request.middleName = value;

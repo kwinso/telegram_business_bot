@@ -4,11 +4,15 @@ const Extra = require("telegraf/extra");
 const messages = {
     paymentOffer: 
         `⚠️ Для работы бота вам нужно оплатить использование бота.\nВы можете сделать это тремя способами: <b>QiWi, Яндекс.Касса, Сбербанк Онлайн</b>.\nВыберите способ оплаты, <i>нажав на кнопку</i>`, 
+    greeting: 
+        `Добро пожаловать в главное меню бота!\n Lorem ipsum dolor sit amet, consectetur adipiscing elit. Duis suscipit ut nunc et rhoncus. Nullam commodo posuere porta. Nullam.\n` +
+        `Чтобы начать работу с ботом, нажмите на кнопку <code>Поиск</code>\nТакже можете посмотреть контакты, нажав на кнопку <code>Контакты </code>`
 }
 
 const keyboards = {
-    paymentOfferKeyboard: ["QiWi 💸", "Яндекс.Касса 💵", "Сбербанк Онлайн 💳"],
-    adminVerifyPayment: "Подтвердить оплату ✅"
+    paymentOfferKeyboard: [["QiWi 💸", "Яндекс.Касса 💵", "Сбербанк Онлайн 💳"], ["🏠 Домой"]],
+    adminVerifyPayment: "Подтвердить оплату ✅",
+    startMenuButtons: [[ Markup.callbackButton("Поиск 🔍", "startSearch"), Markup.callbackButton("Контакты 🔖", "contacts")]]
 }
 
 
@@ -51,17 +55,17 @@ module.exports = class MessagesController {
         } = request;
         const message = 
             `Проверьте ваш запрос перед отправкой.\n` + 
-            `<b>Имя:</b> <code>${firstName || nullValueMessage}</code>\n` +
-            `<b>Фамилия</b>: <code>${lastName || nullValueMessage}</code>\n` +
-            `<b>Отчество:</b> <code>${middleName || nullValueMessage}</code>\n` + 
-            `<b>Год рождения:</b> <code>${yearBirth || nullValueMessage}</code>\n` + 
-            `<b>Месяц рождения:</b> <code>${monthBirth || nullValueMessage}</code>\n` + 
-            `<b>День рождения:</b> <code>${dayBirth || nullValueMessage}</code>\n` + 
-            `<b>Паспорт РФ:</b> <code>${passport || nullValueMessage}</code>\n` +
-            `<b>Гос. номер ТС:</b> <code>${car || nullValueMessage}</code>\n` +
-            `<b>ИНН:</b> <code>${inn || nullValueMessage}</code>\n` +
-            `<b>СНИЛС:</b> <code>${snils || nullValueMessage}</code>\n` +
-            `<b>Номер телефона:</b> <code>${telephone || nullValueMessage}</code>`;
+            `🕴️ <b>Фамилия:</b> <code>${lastName || nullValueMessage}</code>\n` +
+            `🕴️ <b>Имя</b>: <code>${firstName || nullValueMessage}</code>\n` +
+            `🕴️ <b>Отчество:</b> <code>${middleName || nullValueMessage}</code>\n` + 
+            `📅 <b>Год рождения:</b> <code>${yearBirth || nullValueMessage}</code>\n` + 
+            `📅 <b>Месяц рождения:</b> <code>${monthBirth || nullValueMessage}</code>\n` + 
+            `📅 <b>День рождения:</b> <code>${dayBirth || nullValueMessage}</code>\n` + 
+            `📔 <b>Паспорт РФ:</b> <code>${passport || nullValueMessage}</code>\n` +
+            `🚗 <b>Гос. номер ТС:</b> <code>${car || nullValueMessage}</code>\n` +
+            `📃 <b>ИНН:</b> <code>${inn || nullValueMessage}</code>\n` +
+            `📄 <b>СНИЛС:</b> <code>${snils || nullValueMessage}</code>\n` +
+            `📱 <b>Номер телефона:</b> <code>${telephone || nullValueMessage}</code>`;
         try {
         ctx.reply(message, Extra.HTML().markup(Markup.keyboard([["Найти 🔍", "Начать заново 🔄"]]).resize().oneTime()));
             
@@ -69,12 +73,17 @@ module.exports = class MessagesController {
             console.error(e);
         }
     }
-
     sendPaymentNotification(userId, adminId, userMessage, adminMessage, bot) {
         bot.sendMessage(userId, userMessage, { parse_mode: "HTML", reply_markup: { remove_keyboard: true }});
         bot.sendMessage(adminId, adminMessage, Extra.HTML().markup(m => m.inlineKeyboard([m.callbackButton(keyboards.adminVerifyPayment, "verify " + userId)]).oneTime()));
     }
-
+    async sendStartScreen(ctx) {
+        await ctx.replyWithPhoto({ source: "./Assets/logo.png"}, Extra.markup(Markup.removeKeyboard()));
+        ctx.reply(messages.greeting, Extra.HTML().markup(m => m.inlineKeyboard(keyboards.startMenuButtons)));
+    }
+    sendContacts(ctx) {
+        ctx.reply("Тут будет сообщение с контактами", Extra.HTML().markup(Markup.keyboard(["🏠 Домой"]).resize()))
+    }
     sendAlreadyPaidAlert(ctx) {
         ctx.reply("⚠️ Вы уже оплатили использование бота ⚠️", Extra.HTML().markup(m => m.inlineKeyboard([m.callbackButton("Заполнение данных 📝", "buildRequest")])));
     }

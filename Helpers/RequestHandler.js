@@ -4,6 +4,8 @@ const fs = require('fs');
 const path  = require("path");
 const cheerio = require('cheerio');
 const table = require('text-table');
+const { Extra } = require("telegraf");
+const { Markup } = require("telegraf/extra");
 
 const headerCols = [
     "Имя", "Фамилия", "Отчество", "Номер телефона", "Гос. номер авто", "Паспорт РФ", "День рождения", "Месяц рождения", "Год рождения", "СНИЛС", "ИНН", "Информация", "Найден в базе", "ID базы", "ID лица в базе", "Степень плотности покрытия"
@@ -163,19 +165,19 @@ module.exports.getData = async (userReqest, ctx, token) => {
         token
     }
     if (getSize(params) < 2) {
-        await ctx.reply("⚠️ Указано меньше двух параментров. Укажите больше, пожалуйста.",  { reply_markup: { remove_keyboard: true }});
+        await ctx.reply("⚠️ Указано меньше двух параментров. Укажите больше, пожалуйста.",  Extra.markup(Markup.keyboard("🏠 Домой").resize()));
         return null;
     }
      
     const res = await Axios.get("https://protocol-base.com/business_api/get_peoples", { params });
     const persons = res.data;
     if (!persons.length) {
-        await ctx.reply("❌ Результатов нет.",  { reply_markup: { remove_keyboard: true }});
+        await ctx.reply("❌ Результатов нет.",  Extra.markup(Markup.keyboard("🏠 Домой").resize()));
         return null;
     }
     return persons;
     } catch (e) {
-        await ctx.reply("Ошибка на сервере. Попробуйте переделать ваш запрос.", { reply_markup: { remove_keyboard: true }});
+        await ctx.reply("Ошибка на сервере. Попробуйте переделать ваш запрос.", Extra.markup(Markup.keyboard("🏠 Домой").resize()));
         console.error("Ошибка во время поиска в базе:\n" + e);
         return null;
     };

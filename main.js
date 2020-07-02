@@ -1,6 +1,5 @@
-const  { Telegraf } = require("telegraf");
+const  { Telegraf, mount, filter } = require("telegraf");
 const Extra = require("telegraf/extra");
-const { Markup } = require("telegraf/extra");
 const ini = require("ini");
 const  fs = require("fs");
 
@@ -9,6 +8,8 @@ const MessagesController =  require("./Contollers/MessagesController");
 const { QiWiController } = require("./Contollers/PaymentsControllers");
 const { Validator, AskHandler} = require("./Helpers/RequestBuildHelpers");
 const { getData, generateHTML, generateXLSX, createTextTable } = require("./Helpers/RequestHandler");
+const { Markup } = require("telegraf/extra");
+const User = require("./Models/User");
 
 const { dependencies } = ini.parse(fs.readFileSync("./bot_config.ini", "utf-8"));
 
@@ -19,20 +20,47 @@ const messages = new MessagesController();
 const askHandler = new AskHandler(bot.telegram);
 const validator = new Validator();
 
+const dropOldUpdates = mount('message', ({ message }, next) => {
+    const now = new Date().getTime() / 1000
+    if (message.date > (now - 60)) {
+        return next()
+    }
+})
+
+const dropOldUpdatesAlternate = ({ message }, next) => {
+    const now = new Date().getTime() / 1000
+    if (!message || message.date > (now - 60 )) {
+        return next()
+    }
+}
+
+    // Using `filter` factory, telegraf 3.7.3 is required 
+const dropOldUpdatesModern = filter(({ message }) => {
+    const now = new Date().getTime() / 1000
+    return !message || message.date > (now - 60)
+})
+
+bot.use(dropOldUpdates)
+bot.use(dropOldUpdatesAlternate)
+bot.use(dropOldUpdatesModern)
+
 bot.start(async (ctx) => {
     let user = await database.getUser(ctx.from.id);
     if (!user) {
-        user = database.createUser(ctx.from.id);
+        user = await database.createUser(ctx.from.id);
     }
-    if (!user.hasPaid) {
-        messages.sendPaymentOffer(ctx);
-        return;
-    } else {
-        await database.clearUserRequest(user);
-        ctx.reply("Начать поиск", Extra.markup(m => m.inlineKeyboard([m.callbackButton("Заполнение данных 📝", "buildRequest")])));
-    }
+    messages.sendStartScreen(ctx);
 });
 
+
+bot.hears("🏠 Домой", ctx => {
+    messages.sendStartScreen(ctx);
+});
+bot.hears("❌ Закончить", async (ctx) => {
+    const user = await database.getUser(ctx.from.id)
+    await database.clearUserRequest(user);
+    messages.sendStartScreen(ctx);
+});
 // Контроль выбора оплаты
 bot.hears("QiWi 💸", async (ctx) => {
     let randomPhrase = messages.chooseRandomPhrase();
@@ -104,17 +132,17 @@ bot.hears("Пропустить ⏭️",  async (ctx) => {
 });
 bot.hears("Найти 🔍", async (ctx) => {
     const  user = await database.getUser(ctx.from.id);
-    await ctx.reply("Поиск начался...", { reply_markup: { remove_keyboard: true }});
+    await ctx.reply("🔎 Поиск начался...", { reply_markup: { remove_keyboard: true }});
     if (!user) return;
     let results = await getData(user.request, ctx, dependencies.API_TOKEN);
     if (results) {
-        ctx.reply("Результаты получены, выберите формат", Extra.markup(m => m.inlineKeyboard([
+        ctx.reply(`✅ Результаты получены, выберите формат (вы можете сгенерировать таблицу еще ${ 3 - user.timesGenerated} раз(-а))`, Extra.markup(m => m.inlineKeyboard([
             [m.callbackButton("XLSX (excel)", "type xlsx"), m.callbackButton("HTML (браузер) ", "type html")], 
             [m.callbackButton("Текстовая таблица (редактор текста)", "type txt")]
         ])));
         await database.saveResponse(ctx.from.id, results);
         user.hasPaid = false;
-        database.update(user);
+        await database.update(user);
         return;
     }
     ctx.reply("⚠️ Поиск был неудачным, поэтому у вас есть возможность переделать ваш запрос.", Extra.HTML().markup(m => m.inlineKeyboard([m.callbackButton("Начать заново 🔄", "buildRequest")])));
@@ -170,25 +198,48 @@ bot.on("callback_query", async (ctx) => {
         ctx.deleteMessage()
         startQuestions(ctx);
     }
+
+    if (ctx.callbackQuery.data == "startSearch") {
+        const user = await database.getUser(ctx.from.id);
+        ctx.answerCbQuery("Начинаем работу...") 
+        ctx.editMessageReplyMarkup(Markup.inlineKeyboard([[Markup.callbackButton("Контакты 🔖", "contacts")]]));
+        if (user && user.hasPaid) {
+            return messages.sendAlreadyPaidAlert(ctx);
+        }
+        return messages.sendPaymentOffer(ctx);
+    }
+
+    if (ctx.callbackQuery.data == "contacts") {
+        messages.sendContacts(ctx);
+    }
     if (ctx.callbackQuery.data.startsWith("type")) {
         const fileType = ctx.callbackQuery.data.split(' ')[1];
-        const { response } = await database.getUser(ctx.from.id);
+        const user = await database.getUser(ctx.from.id);
         ctx.answerCbQuery("Генерирую файл...");
+        const cancelKeyboard = Extra.markup(Markup.keyboard([["❌ Закончить"]]).resize())
         let data;
         switch (fileType) {
             case "xlsx":
-                data = await generateXLSX(response);
-                ctx.replyWithDocument({ source: data, filename: "Результаты.xlsx" });
+                data = await generateXLSX(user.response);
+                ctx.replyWithDocument({ source: data, filename: "Результаты.xlsx" }, cancelKeyboard );
                 break;
             case "txt":
-                data = createTextTable(response);
-                ctx.replyWithDocument({ source: data, filename: "Результаты.txt" });
+                data = createTextTable(user.response);
+                ctx.replyWithDocument({ source: data, filename: "Результаты.txt" }, cancelKeyboard);
                 break;
             case "html":
-                data = await generateHTML(response);
-                ctx.replyWithDocument({ source: data, filename: "Результаты.html" });
+                data = await generateHTML(user.response);
+                ctx.replyWithDocument({ source: data, filename: "Результаты.html" }, cancelKeyboard);
                 break;
         }
+        if (user.timesGenerated == 2) {
+            await database.clearUser(ctx.from.id)
+            await ctx.editMessageText("❌ Вы больше не можете генерировать таблицу из этого запроса.");
+            return;
+        }
+        user.timesGenerated += 1;
+        await database.update(user);
+        return;
     }
 });
 async function startQuestions (ctx) {
@@ -205,7 +256,7 @@ async function startQuestions (ctx) {
     if (user.request) {
        await database.clearUserRequest(user);
     }
-    await ctx.reply("<b>Отвечайте на мои вопросы, чтобы проивзвести поиск.</b>\n\n<i>Нужно ввести не меньше двух параметров.</i>", Extra.HTML());
+    await ctx.reply("<b>Отвечайте на мои вопросы, чтобы произвести поиск.</b>\n\n<i>Нужно ввести не меньше двух параметров.</i>", Extra.HTML());
     askHandler.askQuestion(user.currentQuestion, ctx.from.id)
 }
 async function launchBot() {

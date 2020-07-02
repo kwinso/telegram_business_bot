@@ -14,6 +14,10 @@ const UserSchema = new Schema({
         type: Number,
         default: 0
     }, 
+    timesGenerated: {
+        type: Number,
+        default: 0,
+    },
     request: {
         firstName: String,
         lastName: String,
