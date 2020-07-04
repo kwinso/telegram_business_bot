@@ -5,14 +5,23 @@ const messages = {
     paymentOffer: 
         `⚠️ Для работы бота вам нужно оплатить использование бота.\nВы можете сделать это тремя способами: <b>QiWi, Яндекс.Касса, Сбербанк Онлайн</b>.\nВыберите способ оплаты, <i>нажав на кнопку</i>`, 
     greeting: 
-        `Добро пожаловать в главное меню бота!\n Lorem ipsum dolor sit amet, consectetur adipiscing elit. Duis suscipit ut nunc et rhoncus. Nullam commodo posuere porta. Nullam.\n` +
-        `Чтобы начать работу с ботом, нажмите на кнопку <code>Поиск</code>\nТакже можете посмотреть контакты, нажав на кнопку <code>Контакты </code>`
+        `🗄БАЗА ДАННЫХ ПРОТОКОЛ | IAS_PROTOCOL 🗃\n` + 
+        `👉🏻 Для кого:\n📍Юристов;\n📍Сотрудников СБ;\n📍Частных Детективов;\n📍Хакеров;\n📍Социальных инженеров;\n\n` +
+        `👉🏻 Что может:\nИдентифицировать личность по неполным данным;\nОсуществляет поиск по неполным данным, а именно:\n` +
+        `🔎 по ГРЗ авто;\n🔎 ИНН;\n🔎 серии номеру паспорта;\n🔎 Имя+Фамилия;\n🔎 адресу пребывания;\n🔎 номеру телефона;\n🔎 СНИЛС;\n\n` +
+        `📌Как вспомогательный инструмент - помогает в поиске родственных связей;\n📌Коллекторам помогает выходить на должников;`,
+    contactsMessage:
+        `При возникновении каких-либо вопросов - связь можете установить по следующим контактам:\n` +
+        `<b>📧 Почта:</b> <code>protocol.base@gmail.com</code>\n` +  
+        `<b>📱 Тел.:</b> <code>+7(812)981-51-66</code>\n` +
+        `<b>✈️ Телеграмм:</b> <code>@IAS_PROTOCOL</code>\n` +
+        `<b>Так же подписывайтесь на наш канал:</b> <code>https://t.me/protocol_data (IAS PROTOCOL)</code>`
 }
 
 const keyboards = {
     paymentOfferKeyboard: [["QiWi 💸", "Яндекс.Касса 💵", "Сбербанк Онлайн 💳"], ["🏠 Домой"]],
     adminVerifyPayment: "Подтвердить оплату ✅",
-    startMenuButtons: [[ Markup.callbackButton("Поиск 🔍", "startSearch"), Markup.callbackButton("Контакты 🔖", "contacts")]]
+    startMenuButtons: [[ Markup.callbackButton("Поиск 🔍 / Оплата 💵", "startSearch"), Markup.callbackButton("Контакты 🔖", "contacts")]]
 }
 
 
@@ -74,18 +83,26 @@ module.exports = class MessagesController {
         }
     }
     sendPaymentNotification(userId, adminId, userMessage, adminMessage, bot) {
-        bot.sendMessage(userId, userMessage, { parse_mode: "HTML", reply_markup: { remove_keyboard: true }});
-        bot.sendMessage(adminId, adminMessage, Extra.HTML().markup(m => m.inlineKeyboard([m.callbackButton(keyboards.adminVerifyPayment, "verify " + userId)]).oneTime()));
+        try {
+            bot.sendMessage(userId, userMessage, { parse_mode: "HTML", reply_markup: { remove_keyboard: true }});
+            bot.sendMessage(adminId, adminMessage, Extra.HTML().markup(m => m.inlineKeyboard([m.callbackButton(keyboards.adminVerifyPayment, "verify " + userId)]).oneTime()));
+        } catch (e) {
+            console.log(e)
+        }
     }
     async sendStartScreen(ctx) {
-        await ctx.replyWithPhoto({ source: "./Assets/logo.png"}, Extra.markup(Markup.removeKeyboard()));
-        ctx.reply(messages.greeting, Extra.HTML().markup(m => m.inlineKeyboard(keyboards.startMenuButtons)));
+        try {
+            await ctx.replyWithPhoto({ source: "./Assets/logo.png"}, Extra.markup(Markup.removeKeyboard()));
+            ctx.reply(messages.greeting, Extra.markup(m => m.inlineKeyboard(keyboards.startMenuButtons)));
+        } catch (e) {
+            console.log(e)
+        }
     }
     sendContacts(ctx) {
-        ctx.reply("Тут будет сообщение с контактами", Extra.HTML().markup(Markup.keyboard(["🏠 Домой"]).resize()))
+        ctx.reply(messages.contactsMessage, Extra.HTML().markup(Markup.keyboard(["🏠 Домой"]).resize()))
     }
     sendAlreadyPaidAlert(ctx) {
-        ctx.reply("⚠️ Вы уже оплатили использование бота ⚠️", Extra.HTML().markup(m => m.inlineKeyboard([m.callbackButton("Заполнение данных 📝", "buildRequest")])));
+        ctx.reply("✅ Использование бота было оплачено раньше, можете начинать поиск ", Extra.HTML().markup(m => m.inlineKeyboard([m.callbackButton("Заполнение данных 📝", "buildRequest")])));
     }
     chooseRandomPhrase() {
         return keyPhrases[Math.floor(Math.random() * keyPhrases.length)];

@@ -187,8 +187,11 @@ bot.on("callback_query", async (ctx) => {
             await database.createUser(verifiedUserId);
             user = await database.getUser(verifiedUserId);
         }
-        let { username } = await bot.telegram.getChat(verifiedUserId);
-        ctx.editMessageText("Оплата для пользователя @" + username + " была подтверждена! ✅");
+        let { username, first_name } = await bot.telegram.getChat(verifiedUserId);
+        let paidUserName = first_name;
+        if (username) paidUserName = `@${username}`
+        
+        ctx.editMessageText(`Оплата для пользователя ${paidUserName} была подтверждена! ✅`);
         ctx.answerCbQuery("Оплата подтверждена.");
         user.hasPaid = true;
         await database.update(user);

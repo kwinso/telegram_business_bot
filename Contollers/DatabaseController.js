@@ -73,22 +73,27 @@ module.exports.DatabaseController = class DatabaseController {
     }
 
     async getUser(id) {
-        const user = await User.findOne({ profileId: id });
-        return user;
+        try {   
+            const user = await User.findOne({ profileId: id });
+            return user;   
+        } catch (err) {
+            console.log(err);
+        }
     }
 
 
     // возрващает false если не удалось сохранить по каким либо причинам
     async addNewPayment(id, phrase) {
+        try {
         const paymentWithComment = await Payment.findOne({ comment: phrase });
         if (paymentWithComment) return false;
         const payment = new Payment({
             payerId: id,
             comment: phrase
         });
-        try {
-            await payment.save(); 
-            return true;
+    
+        await payment.save(); 
+        return true;
         } catch (e) {
             console.log("Ошибка во время сохрания заявки на оплату в базу данных:\n" + e);
             return false;
@@ -104,71 +109,96 @@ module.exports.DatabaseController = class DatabaseController {
     }
 
     async findPayment(payerId) {
-        const payment = await Payment.findOne({ payerId });
-        return payment;
+        try {   
+            const payment = await Payment.findOne({ payerId });
+            return payment;   
+        } catch (err) {
+            console.log(err);
+        }
     }
 
     async cleanPayments() {
-        const now = Date.now();
-        // удалить все записи старше 20 минут 
-        let payments = await Payment.find({ started: { $lte: now - 1000 * 60 * 30}});
-        for (let payment of payments ) {
-            await Payment.findOneAndDelete({payerId: payment.payerId });
+        try {   
+            const now = Date.now();
+            // удалить все записи старше 20 минут 
+            let payments = await Payment.find({ started: { $lte: now - 1000 * 60 * 30}});
+            for (let payment of payments ) {
+                await Payment.findOneAndDelete({payerId: payment.payerId });
+            }   
+        } catch (err) {
+            console.log(err);
         }
     }
 
     async clearUserRequest(user) {
-        user.request = null;
-        user.response = null;
-        user.timesGenerated = 0;
-        user.currentQuestion = 0;
-        await user.save();
+        try {   
+            user.request = null;
+            user.response = null;
+            user.timesGenerated = 0;
+            user.currentQuestion = 0;
+            await user.save();   
+        } catch (err) {
+            console.log(err)
+        }
     }
 
     async clearUser(id) {
-        await User.findOneAndDelete({ profileId: id });
+        try {
+            await User.findOneAndDelete({ profileId: id });            
+        } catch (err) {
+            console.log(err);
+        }
     }
 
     async saveResponse(id, response) {
-        await User.findOneAndUpdate({ profileId: id }, { response });
+        try {
+            await User.findOneAndUpdate({ profileId: id }, { response });            
+        } catch (err) {
+            console.log(err)
+        }
     }
     async saveByQuestionNumber (user, value) {
-        const { request, currentQuestion } = user;
-        switch (currentQuestion) {
-            case 0:
-                request.lastName = value;
-                break;
-            case 1:
-                request.firstName = value;
-                break;
-            case 2:
-                request.middleName = value;
-            case 3:
-                request.yearBirth = value;
-                break;
-            case 4:
-                request.monthBirth = value
-                break;
-            case 5:
-                request.dayBirth = value;
-                break;
-            case 6:
-                request.passport = value;
-                break;
-            case 7:
-                request.car = value;
-                break;
-            case 8:
-                request.snils = value;
-                break;
-            case 9:
-                request.inn = value;
-                break;
-            case 10:
-                request.telephone = value;
+        try {
+            const { request, currentQuestion } = user;
+            switch (currentQuestion) {
+                case 0:
+                    request.lastName = value;
+                    break;
+                case 1:
+                    request.firstName = value;
+                    break;
+                case 2:
+                    request.middleName = value;
+                case 3:
+                    request.yearBirth = value;
+                    break;
+                case 4:
+                    request.monthBirth = value
+                    break;
+                case 5:
+                    request.dayBirth = value;
+                    break;
+                case 6:
+                    request.passport = value;
+                    break;
+                case 7:
+                    request.car = value;
+                    break;
+                case 8:
+                    request.snils = value;
+                    break;
+                case 9:
+                    request.inn = value;
+                    break;
+                case 10:
+                    request.telephone = value;
+            }
+            user.currentQuestion += 1;
+            user.request = request;
+            await user.save();
+        } catch (err) {
+            
         }
-        user.currentQuestion += 1;
-        user.request = request;
-        await user.save();
+        
     }
 }
