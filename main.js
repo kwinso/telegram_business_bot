@@ -136,7 +136,7 @@ bot.hears("Найти 🔍", async (ctx) => {
     if (!user) return;
     let results = await getData(user.request, ctx, dependencies.API_TOKEN);
     if (results) {
-        ctx.reply(`✅ Результаты получены, выберите формат (вы можете сгенерировать таблицу еще ${ 3 - user.timesGenerated} раз(-а))`, Extra.markup(m => m.inlineKeyboard([
+        ctx.reply(`✅ Результаты получены, выберите формат: `, Extra.markup(m => m.inlineKeyboard([
             [m.callbackButton("XLSX (excel)", "type xlsx"), m.callbackButton("HTML (браузер) ", "type html")], 
             [m.callbackButton("Текстовая таблица (редактор текста)", "type txt")]
         ])));
