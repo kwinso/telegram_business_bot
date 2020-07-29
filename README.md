@@ -14,7 +14,7 @@ So, now we have all source code in the `telegram_business_bot`, let's update all
   npm install 
 ````
 That's all! Now we have to configure our bot.
-## Настройка бота
+## Setup your bot 
 To configure bot, check the `bot_config.ini` file. Bot won't never work without this file.  
 Most fields are easy to understand, but I'll explain something.
 
